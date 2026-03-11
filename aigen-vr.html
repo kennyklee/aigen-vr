@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <title>Aigen Streaming</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a12;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 10;
+      pointer-events: none;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #button-bar {
+      display: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      pointer-events: all;
+    }
+
+    #button-bar h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    button {
+      padding: 8px 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      background: #222;
+      color: #ddd;
+      border: 1px solid #555;
+    }
+
+    button.on {
+      background-color: #cccccc;
+      color: #000;
+      transform: translateY(2px);
+      box-shadow: inset 0px 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    #metrics-panel {
+      display: none;
+      color: #0f0;
+      font-size: 13px;
+      background: rgba(0,0,0,0.6);
+      padding: 8px;
+      pointer-events: none;
+    }
+
+    #error-banner {
+      display: none;
+      color: #f44;
+      font-size: 14px;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+    }
+
+    #vr-button-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="overlay">
+    <div id="error-banner"></div>
+    <div id="button-bar">
+      <h3><b>AIGEN ROBOT STREAMS</b></h3>
+      <button id="btn-nav_front" onclick="toggleStream('nav_front', this)">NAV FRONT</button>
+      <button id="btn-nav_rear"  onclick="toggleStream('nav_rear',  this)">NAV REAR</button>
+      <button id="btn-crop_1"   onclick="toggleStream('crop_1',   this)">CROP 1</button>
+      <button id="btn-crop_2"   onclick="toggleStream('crop_2',   this)">CROP 2</button>
+      <button id="btn-crop_3"   onclick="toggleStream('crop_3',   this)">CROP 3</button>
+      <button id="btn-crop_4"   onclick="toggleStream('crop_4',   this)">CROP 4</button>
+      <button id="btn-metrics"  onclick="toggleMetrics(this)">METRICS</button>
+    </div>
+    <div id="metrics-panel"></div>
+  </div>
+
+  <div id="vr-button-container"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { VRButton }      from 'three/addons/webxr/VRButton.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // â”€â”€â”€ Feature detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    if (!('VideoDecoder' in window)) {
+      const banner = document.getElementById('error-banner');
+      banner.style.display = 'block';
+      banner.textContent = 'WebCodecs API not available. Use Chrome 94+, Edge 94+, or Quest Browser.';
+    }
+
+    // â”€â”€â”€ Stream configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const STREAM_CONFIGS = [
+      // nav panels face each other; camera at midpoint at eye height
+      { id: 'nav_front', port: 5544, label: 'NAV FRONT',
+        w: 1.6,  h: 1.2,   pos: [ 0,   1.5,  -0.5 ], rotY: 0,       rotX: 0 },
+      { id: 'nav_rear',  port: 5545, label: 'NAV REAR',
+        w: 1.6,  h: 1.2,   pos: [ 0,   1.5,   0.5 ], rotY: Math.PI, rotX: 0 },
+      // crop cams flat on the ground below the camera, side by side, facing up
+      { id: 'crop_1',   port: 5546, label: 'CROP 1',
+        w: 0.8,  h: 0.6, pos: [-0.3, 0.75,  0 ], rotY: 0, rotX: -Math.PI / 2, rotZ: Math.PI / 2 },
+      { id: 'crop_2',   port: 5547, label: 'CROP 2',
+        w: 0.8,  h: 0.6, pos: [ 0.3, 0.75,  0 ], rotY: 0, rotX: -Math.PI / 2, rotZ:  -Math.PI / 2 },
+    ];
+
+    // â”€â”€â”€ StreamDecoder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    class StreamDecoder {
+      constructor(id, port, canvas, onFrame) {
+        this.id          = id;
+        this.port        = port;
+        this.canvas      = canvas;
+        this.ctx         = canvas.getContext('2d');
+        this.onFrame     = onFrame;
+        this.sps         = null;
+        this.pps         = null;
+        this.decoder     = null;
+        this.configured  = false;
+        this.ws          = null;
+        this.active      = false;
+        this.reconnTimer = null;
+        this.timestamp   = 0;
+        this.frameCount  = 0;
+        this.byteCount   = 0;
+      }
+
+      start() {
+        this.active = true;
+        this._connect();
+      }
+
+      stop() {
+        this.active = false;
+        if (this.reconnTimer) { clearTimeout(this.reconnTimer); this.reconnTimer = null; }
+        if (this.ws) {
+          this.ws.onclose = null;
+          this.ws.close();
+          this.ws = null;
+        }
+        this._resetDecoder();
+      }
+
+      _connect() {
+        const robotHost = new URLSearchParams(location.search).get('host') || location.hostname;
+        const uri = `ws://${robotHost}:${this.port}`;
+        this.ws = new WebSocket(uri);
+        this.ws.binaryType = 'arraybuffer';
+        this.ws.onopen  = () => console.log(`[${this.id}] connected`);
+        this.ws.onmessage = (e) => {
+          this.byteCount += e.data.byteLength;
+          this._onNALU(new Uint8Array(e.data));
+        };
+        this.ws.onerror = () => this.ws.close();
+        this.ws.onclose = () => {
+          if (!this.active) return;
+          console.log(`[${this.id}] disconnected, reconnecting in 5s`);
+          this._resetDecoder();
+          this.reconnTimer = setTimeout(() => this._connect(), 5000);
+        };
+        window.addEventListener('beforeunload', () => {
+          if (this.ws) { this.ws.onclose = null; this.ws.close(); }
+        });
+      }
+
+      _resetDecoder() {
+        this.sps        = null;
+        this.pps        = null;
+        this.configured = false;
+        this.timestamp  = 0;
+        if (this.decoder && this.decoder.state !== 'closed') {
+          try { this.decoder.close(); } catch (_) {}
+        }
+        this.decoder = null;
+      }
+
+      _nalType(data) {
+        // After 4-byte Annex B start code (00 00 00 01), byte[4] is NAL header
+        return data[4] & 0x1f;
+      }
+
+      _hex2(b) {
+        return b.toString(16).padStart(2, '0').toUpperCase();
+      }
+
+      _configureDecoder() {
+        // SPS layout (with 4-byte start code): [5]=profile_idc [6]=constraint_flags [7]=level_idc
+        const codec = `avc1.${this._hex2(this.sps[5])}${this._hex2(this.sps[6])}${this._hex2(this.sps[7])}`;
+        console.log(`[${this.id}] configuring decoder: ${codec}`);
+
+        this.decoder = new VideoDecoder({
+          output: (frame) => this._onFrame(frame),
+          error:  (e)     => {
+            console.error(`[${this.id}] decoder error`, e);
+            this._resetDecoder();
+          }
+        });
+
+        this.decoder.configure({
+          codec,
+          codedWidth:          640,
+          codedHeight:         480,
+          optimizeForLatency:  true,
+        });
+        this.configured = true;
+      }
+
+      _onNALU(data) {
+        const type = this._nalType(data);
+
+        if (type === 7) { this.sps = data; return; }
+        if (type === 8) { this.pps = data; return; }
+
+        if (type === 5) {
+          // IDR keyframe
+          if (!this.sps || !this.pps) { console.warn(`[${this.id}] IDR before SPS/PPS`); return; }
+          if (!this.configured) this._configureDecoder();
+          if (!this.decoder || this.decoder.state === 'closed') return;
+
+          // Watchdog: if queue is backing up, reset
+          if (this.decoder.decodeQueueSize > 15) {
+            console.warn(`[${this.id}] queue backlog, resetting decoder`);
+            this._resetDecoder();
+            this._configureDecoder();
+          }
+
+          // Prepend SPS + PPS to IDR so the decoder has parameter sets
+          const combined = new Uint8Array(this.sps.byteLength + this.pps.byteLength + data.byteLength);
+          combined.set(this.sps, 0);
+          combined.set(this.pps, this.sps.byteLength);
+          combined.set(data,     this.sps.byteLength + this.pps.byteLength);
+
+          this.decoder.decode(new EncodedVideoChunk({
+            type:      'key',
+            timestamp: this.timestamp,
+            data:      combined,
+          }));
+
+        } else if (type === 1) {
+          // P-frame / delta
+          if (!this.configured || !this.decoder || this.decoder.state === 'closed') return;
+          if (this.decoder.decodeQueueSize > 15) return; // drop to catch up
+
+          this.decoder.decode(new EncodedVideoChunk({
+            type:      'delta',
+            timestamp: this.timestamp,
+            data,
+          }));
+        }
+
+        this.timestamp  += 33333; // ~30fps in microseconds
+        this.frameCount += 1;
+      }
+
+      _onFrame(frame) {
+        this.ctx.drawImage(frame, 0, 0);
+        frame.close(); // mandatory â€” prevents GPU memory leak
+        if (this.onFrame) this.onFrame();
+      }
+    }
+
+    // â”€â”€â”€ Three.js scene â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+
+    // â”€â”€â”€ Farm field sky sphere â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Painted onto a canvas and mapped to the inside of a large sphere so it
+    // works correctly in both desktop and VR modes.
+    (function addFarmFieldSky() {
+      const W = 2048, H = 1024;
+      const cv  = document.createElement('canvas');
+      cv.width  = W; cv.height = H;
+      const ctx = cv.getContext('2d');
+
+      // Sky â€” deep blue fading to pale near horizon
+      const sky = ctx.createLinearGradient(0, 0, 0, H * 0.58);
+      sky.addColorStop(0,   '#3a6ea8');
+      sky.addColorStop(0.5, '#6fa8d4');
+      sky.addColorStop(1,   '#c8dff0');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H * 0.58);
+
+      // Ground â€” wheat horizon blending into patchy crop green
+      const ground = ctx.createLinearGradient(0, H * 0.52, 0, H);
+      ground.addColorStop(0,    '#e2d48a');
+      ground.addColorStop(0.12, '#b8c45a');
+      ground.addColorStop(0.35, '#7ea83c');
+      ground.addColorStop(0.7,  '#5a8a28');
+      ground.addColorStop(1,    '#3d6318');
+      ctx.fillStyle = ground;
+      ctx.fillRect(0, H * 0.52, W, H * 0.48);
+
+      // Soft horizon glow to blend sky/ground seam
+      const glow = ctx.createLinearGradient(0, H * 0.46, 0, H * 0.66);
+      glow.addColorStop(0,   'rgba(255,245,200,0)');
+      glow.addColorStop(0.4, 'rgba(255,245,200,0.55)');
+      glow.addColorStop(1,   'rgba(255,245,200,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, H * 0.46, W, H * 0.20);
+
+      // Horizontal crop-row streaks for a bit of field texture
+      for (let i = 0; i < 28; i++) {
+        const y  = H * (0.62 + i * 0.016);
+        const a  = 0.04 + (i / 28) * 0.10;
+        ctx.fillStyle = `rgba(40,60,10,${a.toFixed(3)})`;
+        ctx.fillRect(0, y, W, H * 0.007);
+      }
+
+      // Gaussian-style blur pass via multiple down/up draws at low opacity
+      // (avoids CanvasRenderingContext2D filter which is less supported)
+      const tmp  = document.createElement('canvas');
+      tmp.width  = W / 8; tmp.height = H / 8;
+      const tctx = tmp.getContext('2d');
+      tctx.drawImage(cv, 0, 0, W / 8, H / 8);
+      for (let i = 0; i < 3; i++) {
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(tmp, 0, 0, W, H);
+      }
+      ctx.globalAlpha = 1;
+
+      const tex  = new THREE.CanvasTexture(cv);
+      const geo  = new THREE.SphereGeometry(60, 32, 16);
+      const mat  = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
+      scene.add(new THREE.Mesh(geo, mat));
+    })();
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(0, 5, 5);
+    scene.add(dirLight);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.5, 0.5);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1.5, 0);
+    controls.enableZoom = false;  // scroll zooms FOV instead (see below)
+    controls.enablePan = false;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    // FOV zoom â€” scroll wheel narrows/widens the lens without moving the camera
+    renderer.domElement.addEventListener('wheel', (e) => {
+      camera.fov = Math.max(20, Math.min(100, camera.fov + e.deltaY * 0.05));
+      camera.updateProjectionMatrix();
+    }, { passive: true });
+
+    // VR button
+    document.getElementById('vr-button-container').appendChild(VRButton.createButton(renderer));
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // â”€â”€â”€ Text sprite helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    function makeTextSprite(text) {
+      const cv  = document.createElement('canvas');
+      cv.width  = 512;
+      cv.height = 80;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = 'rgba(0,0,0,0)';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.font      = 'bold 42px Courier New, monospace';
+      ctx.fillStyle = '#aaaacc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, cv.width / 2, cv.height / 2);
+
+      const tex = new THREE.CanvasTexture(cv);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const spr = new THREE.Sprite(mat);
+      spr.scale.set(0.9, 0.14, 1);
+      return spr;
+    }
+
+    // â”€â”€â”€ Panel frame helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    function makeFrame(w, h) {
+      const geo  = new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, h));
+      const mat  = new THREE.LineBasicMaterial({ color: 0x445566 });
+      return new THREE.LineSegments(geo, mat);
+    }
+
+    // â”€â”€â”€ Build panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const streamState = {};
+
+    for (const cfg of STREAM_CONFIGS) {
+      // Hidden 2D canvas for WebCodecs output
+      const cv      = document.createElement('canvas');
+      cv.width      = 640;
+      cv.height     = 480;
+      cv.style.display = 'none';
+      document.body.appendChild(cv);
+
+      // Placeholder texture (dark grey)
+      const placeholderCtx = cv.getContext('2d');
+      placeholderCtx.fillStyle = '#111118';
+      placeholderCtx.fillRect(0, 0, 640, 480);
+
+      const texture         = new THREE.CanvasTexture(cv);
+      texture.colorSpace    = THREE.SRGBColorSpace;
+
+      // Video panel mesh
+      const geo  = new THREE.PlaneGeometry(cfg.w, cfg.h);
+      const mat  = new THREE.MeshBasicMaterial({ map: texture });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(...cfg.pos);
+      mesh.rotation.x = cfg.rotX;
+      mesh.rotation.y = cfg.rotY;
+      mesh.rotation.z = cfg.rotZ || 0;
+      mesh.visible    = false;
+      scene.add(mesh);
+
+      // Frame (always visible as a dim border)
+      const frame = makeFrame(cfg.w, cfg.h);
+      frame.position.set(...cfg.pos);
+      frame.rotation.x = cfg.rotX;
+      frame.rotation.y = cfg.rotY;
+      frame.rotation.z = cfg.rotZ || 0;
+      scene.add(frame);
+
+      // Label sprite â€” for horizontal panels (facing up) place label above,
+      // for vertical panels place it below
+      const label = makeTextSprite(cfg.label);
+      const horizontal = Math.abs(cfg.rotX) > 0.1;
+      label.position.set(
+        cfg.pos[0],
+        horizontal ? cfg.pos[1] + 0.15 : cfg.pos[1] - cfg.h / 2 - 0.1,
+        cfg.pos[2]
+      );
+      // scene.add(label);
+
+      const decoder = new StreamDecoder(cfg.id, cfg.port, cv, () => {
+        streamState[cfg.id].textureDirty = true;
+      });
+
+      streamState[cfg.id] = {
+        decoder,
+        mesh,
+        texture,
+        on:           false,
+        textureDirty: false,
+        metricInterval: null,
+      };
+    }
+
+    // â”€â”€â”€ Render loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    renderer.setAnimationLoop(() => {
+      controls.update();
+      for (const s of Object.values(streamState)) {
+        if (s.textureDirty) {
+          s.texture.needsUpdate = true;
+          s.textureDirty = false;
+        }
+      }
+      renderer.render(scene, camera);
+    });
+
+    // â”€â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    let metricsOn = false;
+    const metricsPanel = document.getElementById('metrics-panel');
+
+    function updateMetrics() {
+      if (!metricsOn) return;
+      let html = '';
+      for (const [id, s] of Object.entries(streamState)) {
+        if (!s.on) continue;
+        const dec  = s.decoder;
+        const fps  = dec.frameCount;
+        const kbps = (dec.byteCount / 1000).toFixed(1);
+        dec.frameCount = 0;
+        dec.byteCount  = 0;
+        html += `<div>${id}: ${fps} fps | ${kbps} kB/s</div>`;
+      }
+      metricsPanel.innerHTML = html || '<div>No active streams</div>';
+    }
+
+    const metricsInterval = setInterval(updateMetrics, 1000);
+
+    window.toggleMetrics = function(btn) {
+      metricsOn = !metricsOn;
+      metricsPanel.style.display = metricsOn ? 'block' : 'none';
+      btn.classList.toggle('on', metricsOn);
+    };
+
+    // â”€â”€â”€ Stream toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    window.toggleStream = function(id, btn) {
+      const s = streamState[id];
+      if (!s) return;
+
+      if (s.on) {
+        s.decoder.stop();
+        s.mesh.visible = false;
+        s.on = false;
+        btn.classList.remove('on');
+      } else {
+        s.decoder.start();
+        s.mesh.visible = true;
+        s.on = true;
+        btn.classList.add('on');
+      }
+    };
+
+    function stopAll() {
+      for (const [id, s] of Object.entries(streamState)) {
+        if (s.on) {
+          s.decoder.stop();
+          s.mesh.visible = false;
+          s.on = false;
+          const btn = document.getElementById(`btn-${id}`);
+          if (btn) btn.classList.remove('on');
+        }
+      }
+      metricsOn = false;
+      metricsPanel.style.display = 'none';
+      const mBtn = document.getElementById('btn-metrics');
+      if (mBtn) mBtn.classList.remove('on');
+    }
+
+    // â”€â”€â”€ Visibility change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopAll();
+    });
+
+    // â”€â”€â”€ URL param single-stream mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+
+      if (params.has('stream')) {
+        // Single stream mode â€” hide button bar
+        document.getElementById('button-bar').style.display = 'none';
+
+        const id  = params.get('stream');
+        const s   = streamState[id];
+        if (s) {
+          s.decoder.start();
+          s.mesh.visible = true;
+          s.on = true;
+          // Point camera toward that panel
+          const cfg = STREAM_CONFIGS.find(c => c.id === id);
+          if (cfg) {
+            camera.position.set(cfg.pos[0], cfg.pos[1], cfg.pos[2] + 2.8);
+            controls.target.set(...cfg.pos);
+          }
+        }
+
+        if (params.get('metrics') === '1') {
+          metricsOn = true;
+          metricsPanel.style.display = 'block';
+        }
+      } else {
+        document.getElementById('button-bar').style.display = 'flex';
+      }
+    });
+  </script>
+</body>
+
+</html>
