@@ -3,7 +3,8 @@
 
 <head>
   <meta charset='utf-8'>
-  <title>Aigen Streaming</title>
+  <title>Aigen VR Streaming</title>
+  <script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js"></script>
   <script type="importmap">
   {
     "imports": {
@@ -18,74 +19,192 @@
       margin: 0;
       overflow: hidden;
       background: #0a0a12;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     }
 
     #overlay {
       position: fixed;
-      top: 0; left: 0;
+      top: 0; left: 0; right: 0;
       z-index: 10;
       pointer-events: none;
-      padding: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #control-bar {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      pointer-events: all;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px 24px;
+      max-width: 520px;
+    }
+
+    #control-bar .title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #control-bar .title-row h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .aigen-badge {
+      background: linear-gradient(135deg, #34d399, #059669);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    .control-section {
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
-    #button-bar {
-      display: none;
-      flex-wrap: wrap;
-      gap: 8px;
-      pointer-events: all;
+    .control-label {
+      color: rgba(255,255,255,0.4);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
     }
 
-    #button-bar h3 {
-      margin: 0;
-      color: #fff;
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    select {
+      padding: 12px 16px;
+      font-family: inherit;
+      font-weight: 600;
       font-size: 14px;
-      width: 100%;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 40px;
+      min-width: 220px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #34d399;
+      box-shadow: 0 0 0 2px rgba(52,211,153,0.2);
+    }
+
+    select option {
+      background: #1a1a2e;
+      color: #fff;
     }
 
     button {
-      padding: 8px 12px;
-      font-family: 'Courier New', Courier, monospace;
-      font-weight: bold;
+      padding: 12px 20px;
+      font-family: inherit;
+      font-weight: 600;
       font-size: 13px;
       cursor: pointer;
-      background: #222;
-      color: #ddd;
-      border: 1px solid #555;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      transition: all 0.15s ease;
+      letter-spacing: 0.3px;
+    }
+
+    button:hover {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-color: rgba(255,255,255,0.2);
     }
 
     button.on {
-      background-color: #cccccc;
-      color: #000;
-      transform: translateY(2px);
-      box-shadow: inset 0px 2px 5px rgba(0, 0, 0, 0.2);
+      background: rgba(255,255,255,0.95);
+      color: #111;
+      border-color: transparent;
+      box-shadow: 0 2px 12px rgba(255,255,255,0.15);
+    }
+
+    .status-text {
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .status-text.connected {
+      color: #34d399;
     }
 
     #metrics-panel {
       display: none;
-      color: #0f0;
-      font-size: 13px;
-      background: rgba(0,0,0,0.6);
-      padding: 8px;
+      color: rgba(52,211,153,0.9);
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px 16px;
       pointer-events: none;
+      max-width: 400px;
     }
 
     #error-banner {
       display: none;
-      color: #f44;
+      color: #fca5a5;
       font-size: 14px;
-      background: rgba(0,0,0,0.8);
-      padding: 10px;
+      background: rgba(127,29,29,0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(252,165,165,0.2);
+      border-radius: 12px;
+      padding: 14px 18px;
     }
 
     #vr-button-container {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 10;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+    }
+
+    #vr-button-container button {
+      border-radius: 14px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #34d399, #059669);
+      border: none;
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(52,211,153,0.4);
+      cursor: pointer;
     }
   </style>
 </head>
@@ -93,15 +212,41 @@
 <body>
   <div id="overlay">
     <div id="error-banner"></div>
-    <div id="button-bar">
-      <h3><b>AIGEN ROBOT STREAMS</b></h3>
-      <button id="btn-nav_front" onclick="toggleStream('nav_front', this)">NAV FRONT</button>
-      <button id="btn-nav_rear"  onclick="toggleStream('nav_rear',  this)">NAV REAR</button>
-      <button id="btn-crop_1"   onclick="toggleStream('crop_1',   this)">CROP 1</button>
-      <button id="btn-crop_2"   onclick="toggleStream('crop_2',   this)">CROP 2</button>
-      <button id="btn-crop_3"   onclick="toggleStream('crop_3',   this)">CROP 3</button>
-      <button id="btn-crop_4"   onclick="toggleStream('crop_4',   this)">CROP 4</button>
-      <button id="btn-metrics"  onclick="toggleMetrics(this)">METRICS</button>
+    <div id="control-bar">
+      <div class="title-row">
+        <h3>AIGEN</h3>
+        <span class="aigen-badge">Live</span>
+      </div>
+
+      <div class="control-section">
+        <span class="control-label">Robot</span>
+        <select id="robot-select" onchange="onRobotSelect(this)">
+          <option value="" disabled selected>Select a robot...</option>
+          <option value="0">Mosscap-120</option>
+          <option value="1">SrWeedSaLot-109</option>
+          <option value="2">Ivanhoe-122</option>
+          <option value="3">Loki-116</option>
+          <option value="4">Juniper-313</option>
+        </select>
+        <div id="status-text" class="status-text">Select a robot to start streaming</div>
+      </div>
+
+      <div class="control-section">
+        <span class="control-label">Cameras</span>
+        <div class="button-row">
+          <button id="btn-nav_front" onclick="toggleStream('nav_front', this)">Nav Front</button>
+          <button id="btn-nav_rear"  onclick="toggleStream('nav_rear',  this)">Nav Rear</button>
+          <button id="btn-crop_1"   onclick="toggleStream('crop_1',   this)">Crop 1</button>
+          <button id="btn-crop_2"   onclick="toggleStream('crop_2',   this)">Crop 2</button>
+          <button id="btn-crop_3"   onclick="toggleStream('crop_3',   this)">Crop 3</button>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btn-enlarge-crops" onclick="toggleCropSize(this)">Enlarge Crops</button>
+        <button id="btn-metrics" onclick="toggleMetrics(this)">Metrics</button>
+        <button id="btn-robot-model" onclick="toggleRobotModel(this)">Show Robot</button>
+      </div>
     </div>
     <div id="metrics-panel"></div>
   </div>
@@ -112,53 +257,99 @@
     import * as THREE from 'three';
     import { VRButton }      from 'three/addons/webxr/VRButton.js';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    // â”€â”€â”€ Feature detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Feature detection ---
 
-    if (!('VideoDecoder' in window)) {
-      const banner = document.getElementById('error-banner');
-      banner.style.display = 'block';
-      banner.textContent = 'WebCodecs API not available. Use Chrome 94+, Edge 94+, or Quest Browser.';
-    }
+    const HAS_WEBCODECS = 'VideoDecoder' in window;
+    console.log(`[init] WebCodecs: ${HAS_WEBCODECS ? 'available' : 'unavailable, using jmuxer fallback'}`);
 
-    // â”€â”€â”€ Stream configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Robot & stream configuration ---
 
-    const STREAM_CONFIGS = [
-      // nav panels face each other; camera at midpoint at eye height
-      { id: 'nav_front', port: 5544, label: 'NAV FRONT',
-        w: 1.6,  h: 1.2,   pos: [ 0,   1.5,  -0.5 ], rotY: 0,       rotX: 0 },
-      { id: 'nav_rear',  port: 5545, label: 'NAV REAR',
-        w: 1.6,  h: 1.2,   pos: [ 0,   1.5,   0.5 ], rotY: Math.PI, rotX: 0 },
-      // crop cams flat on the ground below the camera, side by side, facing up
-      { id: 'crop_1',   port: 5546, label: 'CROP 1',
-        w: 0.8,  h: 0.6, pos: [-0.3, 0.75,  0 ], rotY: 0, rotX: -Math.PI / 2, rotZ: Math.PI / 2 },
-      { id: 'crop_2',   port: 5547, label: 'CROP 2',
-        w: 0.8,  h: 0.6, pos: [ 0.3, 0.75,  0 ], rotY: 0, rotX: -Math.PI / 2, rotZ:  -Math.PI / 2 },
+    const ROBOTS = [
+      { name: 'Mosscap-120',      host: 'mosscap-120.tail5b7ad.ts.net' },
+      { name: 'SrWeedSaLot-109',  host: 'srweedsalot-109.tail5b7ad.ts.net' },
+      { name: 'Ivanhoe-122',      host: 'ivanhoe-122.tail5b7ad.ts.net' },
+      { name: 'Loki-116',         host: 'loki-116.tail5b7ad.ts.net' },
+      { name: 'Juniper-313',      host: 'juniper-313.tail5b7ad.ts.net' },
     ];
 
-    // â”€â”€â”€ StreamDecoder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const CAMERAS = [
+      { id: 'nav_front', port: 5544, label: 'NAV FRONT' },
+      { id: 'nav_rear',  port: 5545, label: 'NAV REAR' },
+      { id: 'crop_1',    port: 5546, label: 'CROP 1' },
+      { id: 'crop_2',    port: 5547, label: 'CROP 2' },
+      { id: 'crop_3',    port: 5548, label: 'CROP 3' },
+    ];
+
+    // Panel placement — all panels face toward viewer at (0, 1.5, 0)
+    const VIEWER_POS = new THREE.Vector3(0, 1.5, 0);
+
+    const PANEL_LAYOUT = {
+      // nav_front and nav_rear: opposite sides, viewer in the middle facing front
+      nav_front: { w: 2.0, h: 1.5, pos: [ 0,   1.5, -2.0], flat: false },  // in front
+      nav_rear:  { w: 2.0, h: 1.5, pos: [ 0,   1.5,  2.0], flat: false },  // behind
+      // crop cams: flat on the ground, face-up, like standing on them
+      crop_1:    { w: 1.2, h: 0.9, pos: [-0.45, 0.01, 0], flat: true, rotZ: -Math.PI / 2 },  // ground, left
+      crop_2:    { w: 1.2, h: 0.9, pos: [ 0.45, 0.01, 0], flat: true, rotZ: Math.PI / 2 },   // ground, right
+      // crop 3: to the left at eye height
+      crop_3:    { w: 2.0, h: 1.5, pos: [-2.0, 1.5,   0  ], flat: false },  // left wall
+    };
+
+    // Calculate rotation: flat panels face up, vertical panels face viewer
+    function calcPanelRotation(pos, flat, rotZOverride) {
+      if (flat) {
+        // Face straight up (lying on the ground)
+        return { rotX: -Math.PI / 2, rotY: 0, rotZ: rotZOverride || 0 };
+      }
+      const panelPos = new THREE.Vector3(...pos);
+      const dir = new THREE.Vector3().subVectors(VIEWER_POS, panelPos).normalize();
+      const yRot = Math.atan2(dir.x, dir.z);
+      return { rotX: 0, rotY: yRot, rotZ: 0 };
+    }
+
+    let activeRobotIndex = -1;
+
+    // --- StreamDecoder (WebCodecs with jmuxer fallback) ---
 
     class StreamDecoder {
-      constructor(id, port, canvas, onFrame) {
+      constructor(id, canvas, onFrame) {
         this.id          = id;
-        this.port        = port;
         this.canvas      = canvas;
         this.ctx         = canvas.getContext('2d');
         this.onFrame     = onFrame;
+        this.host        = null;
+        this.port        = null;
+        this.ws          = null;
+        this.active      = false;
+        this.reconnTimer = null;
+        this.frameCount  = 0;
+        this.byteCount   = 0;
+
+        // WebCodecs state
         this.sps         = null;
         this.pps         = null;
         this.decoder     = null;
         this.configured  = false;
-        this.ws          = null;
-        this.active      = false;
-        this.reconnTimer = null;
         this.timestamp   = 0;
-        this.frameCount  = 0;
-        this.byteCount   = 0;
+
+        // jmuxer fallback state
+        this.jmuxer      = null;
+        this.videoEl      = null;
+        this.drawInterval = null;
       }
 
-      start() {
+      start(host, port) {
+        this.stop();
+        this.host   = host;
+        this.port   = port;
         this.active = true;
+
+        if (!HAS_WEBCODECS) {
+          this._initJmuxer();
+        }
+
         this._connect();
       }
 
@@ -171,28 +362,83 @@
           this.ws = null;
         }
         this._resetDecoder();
+        this._destroyJmuxer();
+      }
+
+      _initJmuxer() {
+        // Create a hidden video element for jmuxer to render into
+        this.videoEl = document.createElement('video');
+        this.videoEl.muted = true;
+        this.videoEl.autoplay = true;
+        this.videoEl.playsInline = true;
+        this.videoEl.style.display = 'none';
+        document.body.appendChild(this.videoEl);
+
+        this.jmuxer = new JMuxer({
+          node: this.videoEl,
+          mode: 'video',
+          flushingTime: 0,
+          fps: 30,
+          debug: false,
+        });
+
+        // Draw video frames to canvas at ~30fps
+        this.drawInterval = setInterval(() => {
+          if (this.videoEl && this.videoEl.readyState >= 2) {
+            const vw = this.videoEl.videoWidth, vh = this.videoEl.videoHeight;
+            if (vw && vh && (this.canvas.width !== vw || this.canvas.height !== vh)) {
+              this.canvas.width = vw;
+              this.canvas.height = vh;
+              console.log(`[${this.id}] resolution: ${vw}x${vh}`);
+              if (this.onResize) this.onResize(vw, vh);
+            }
+            this.ctx.drawImage(this.videoEl, 0, 0, this.canvas.width, this.canvas.height);
+            if (this.onFrame) this.onFrame();
+          }
+        }, 33);
+      }
+
+      _destroyJmuxer() {
+        if (this.drawInterval) { clearInterval(this.drawInterval); this.drawInterval = null; }
+        if (this.jmuxer) { try { this.jmuxer.destroy(); } catch(_) {} this.jmuxer = null; }
+        if (this.videoEl) {
+          this.videoEl.pause();
+          this.videoEl.remove();
+          this.videoEl = null;
+        }
       }
 
       _connect() {
-        const robotHost = new URLSearchParams(location.search).get('host') || location.hostname;
-        const uri = `ws://${robotHost}:${this.port}`;
+        let uri;
+        if (location.protocol === 'https:') {
+          // Route through local WSS proxy to avoid mixed-content blocking
+          uri = `wss://${location.hostname}:9100/ws/${this.host}/${this.port}`;
+        } else {
+          uri = `ws://${this.host}:${this.port}`;
+        }
+        console.log(`[${this.id}] connecting to ${uri}`);
         this.ws = new WebSocket(uri);
         this.ws.binaryType = 'arraybuffer';
-        this.ws.onopen  = () => console.log(`[${this.id}] connected`);
+        this.ws.onopen  = () => console.log(`[${this.id}] connected to ${this.host}`);
         this.ws.onmessage = (e) => {
           this.byteCount += e.data.byteLength;
-          this._onNALU(new Uint8Array(e.data));
+          const data = new Uint8Array(e.data);
+
+          if (HAS_WEBCODECS) {
+            this._onNALU(data);
+          } else if (this.jmuxer) {
+            // Feed raw NAL unit to jmuxer
+            this.jmuxer.feed({ video: data });
+            this.frameCount += 1;
+          }
         };
         this.ws.onerror = () => this.ws.close();
         this.ws.onclose = () => {
           if (!this.active) return;
-          console.log(`[${this.id}] disconnected, reconnecting in 5s`);
+          console.log(`[${this.id}] disconnected from ${this.host}, reconnecting in 5s`);
           this._resetDecoder();
           this.reconnTimer = setTimeout(() => this._connect(), 5000);
         };
-        window.addEventListener('beforeunload', () => {
-          if (this.ws) { this.ws.onclose = null; this.ws.close(); }
-        });
       }
 
       _resetDecoder() {
@@ -207,7 +453,6 @@
       }
 
       _nalType(data) {
-        // After 4-byte Annex B start code (00 00 00 01), byte[4] is NAL header
         return data[4] & 0x1f;
       }
 
@@ -216,7 +461,6 @@
       }
 
       _configureDecoder() {
-        // SPS layout (with 4-byte start code): [5]=profile_idc [6]=constraint_flags [7]=level_idc
         const codec = `avc1.${this._hex2(this.sps[5])}${this._hex2(this.sps[6])}${this._hex2(this.sps[7])}`;
         console.log(`[${this.id}] configuring decoder: ${codec}`);
 
@@ -230,8 +474,8 @@
 
         this.decoder.configure({
           codec,
-          codedWidth:          640,
-          codedHeight:         480,
+          codedWidth:          1280,
+          codedHeight:         720,
           optimizeForLatency:  true,
         });
         this.configured = true;
@@ -244,19 +488,16 @@
         if (type === 8) { this.pps = data; return; }
 
         if (type === 5) {
-          // IDR keyframe
           if (!this.sps || !this.pps) { console.warn(`[${this.id}] IDR before SPS/PPS`); return; }
           if (!this.configured) this._configureDecoder();
           if (!this.decoder || this.decoder.state === 'closed') return;
 
-          // Watchdog: if queue is backing up, reset
           if (this.decoder.decodeQueueSize > 15) {
             console.warn(`[${this.id}] queue backlog, resetting decoder`);
             this._resetDecoder();
             this._configureDecoder();
           }
 
-          // Prepend SPS + PPS to IDR so the decoder has parameter sets
           const combined = new Uint8Array(this.sps.byteLength + this.pps.byteLength + data.byteLength);
           combined.set(this.sps, 0);
           combined.set(this.pps, this.sps.byteLength);
@@ -269,9 +510,8 @@
           }));
 
         } else if (type === 1) {
-          // P-frame / delta
           if (!this.configured || !this.decoder || this.decoder.state === 'closed') return;
-          if (this.decoder.decodeQueueSize > 15) return; // drop to catch up
+          if (this.decoder.decodeQueueSize > 15) return;
 
           this.decoder.decode(new EncodedVideoChunk({
             type:      'delta',
@@ -280,37 +520,44 @@
           }));
         }
 
-        this.timestamp  += 33333; // ~30fps in microseconds
+        this.timestamp  += 33333;
         this.frameCount += 1;
       }
 
       _onFrame(frame) {
+        // Resize canvas if stream resolution changed
+        const fw = frame.displayWidth, fh = frame.displayHeight;
+        if (this.canvas.width !== fw || this.canvas.height !== fh) {
+          this.canvas.width = fw;
+          this.canvas.height = fh;
+          console.log(`[${this.id}] resolution: ${fw}x${fh}`);
+          if (this.onResize) this.onResize(fw, fh);
+        }
         this.ctx.drawImage(frame, 0, 0);
-        frame.close(); // mandatory â€” prevents GPU memory leak
+        frame.close();
         if (this.onFrame) this.onFrame();
       }
     }
 
-    // â”€â”€â”€ Three.js scene â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Three.js scene ---
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
 
-    // â”€â”€â”€ Farm field sky sphere â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Painted onto a canvas and mapped to the inside of a large sphere so it
-    // works correctly in both desktop and VR modes.
+    // --- Farm field sky sphere ---
     (function addFarmFieldSky() {
       const W = 2048, H = 1024;
       const cv  = document.createElement('canvas');
       cv.width  = W; cv.height = H;
       const ctx = cv.getContext('2d');
 
-      // Sky â€” deep blue fading to pale near horizon
       const sky = ctx.createLinearGradient(0, 0, 0, H * 0.58);
       sky.addColorStop(0,   '#3a6ea8');
       sky.addColorStop(0.5, '#6fa8d4');
@@ -318,7 +565,6 @@
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, H * 0.58);
 
-      // Ground â€” wheat horizon blending into patchy crop green
       const ground = ctx.createLinearGradient(0, H * 0.52, 0, H);
       ground.addColorStop(0,    '#e2d48a');
       ground.addColorStop(0.12, '#b8c45a');
@@ -328,7 +574,6 @@
       ctx.fillStyle = ground;
       ctx.fillRect(0, H * 0.52, W, H * 0.48);
 
-      // Soft horizon glow to blend sky/ground seam
       const glow = ctx.createLinearGradient(0, H * 0.46, 0, H * 0.66);
       glow.addColorStop(0,   'rgba(255,245,200,0)');
       glow.addColorStop(0.4, 'rgba(255,245,200,0.55)');
@@ -336,7 +581,6 @@
       ctx.fillStyle = glow;
       ctx.fillRect(0, H * 0.46, W, H * 0.20);
 
-      // Horizontal crop-row streaks for a bit of field texture
       for (let i = 0; i < 28; i++) {
         const y  = H * (0.62 + i * 0.016);
         const a  = 0.04 + (i / 28) * 0.10;
@@ -344,8 +588,6 @@
         ctx.fillRect(0, y, W, H * 0.007);
       }
 
-      // Gaussian-style blur pass via multiple down/up draws at low opacity
-      // (avoids CanvasRenderingContext2D filter which is less supported)
       const tmp  = document.createElement('canvas');
       tmp.width  = W / 8; tmp.height = H / 8;
       const tctx = tmp.getContext('2d');
@@ -357,35 +599,36 @@
       ctx.globalAlpha = 1;
 
       const tex  = new THREE.CanvasTexture(cv);
-      const geo  = new THREE.SphereGeometry(60, 32, 16);
+      const geo  = new THREE.SphereGeometry(60, 64, 32);
       const mat  = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
       scene.add(new THREE.Mesh(geo, mat));
     })();
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(0, 5, 5);
     scene.add(dirLight);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.5, 0.5);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.5, 0);  // standing position, center of the room
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1.5, 0);
-    controls.enableZoom = false;  // scroll zooms FOV instead (see below)
+    controls.target.set(0, 1.5, -2.0);  // looking at nav_front
+    controls.enableZoom = false;
     controls.enablePan = false;
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
 
-    // FOV zoom â€” scroll wheel narrows/widens the lens without moving the camera
     renderer.domElement.addEventListener('wheel', (e) => {
       camera.fov = Math.max(20, Math.min(100, camera.fov + e.deltaY * 0.05));
       camera.updateProjectionMatrix();
     }, { passive: true });
 
-    // VR button
-    document.getElementById('vr-button-container').appendChild(VRButton.createButton(renderer));
+    // VR button — clear Three.js inline styles so our CSS takes over
+    const vrBtn = VRButton.createButton(renderer);
+    vrBtn.removeAttribute('style');
+    document.getElementById('vr-button-container').appendChild(vrBtn);
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -393,114 +636,739 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // â”€â”€â”€ Text sprite helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- 3D Robot Model ---
+    let robotModel = null;
+    let robotModelLoaded = false;
+    const gltfLoader = new GLTFLoader();
 
-    function makeTextSprite(text) {
+    gltfLoader.load('robot-model.glb', (gltf) => {
+      robotModel = gltf.scene;
+
+      // Real dimensions: 74"W × 48"L × 39"H
+      const REAL_W = 74 * 0.0254;  // 1.880m
+      const REAL_L = 48 * 0.0254;  // 1.219m
+      const REAL_H = 39 * 0.0254;  // 0.991m
+
+      // CAD raw bounding box (before any rotation)
+      const rawBox = new THREE.Box3().setFromObject(robotModel);
+      const rawSize = rawBox.getSize(new THREE.Vector3());
+      const rawCenter = rawBox.getCenter(new THREE.Vector3());
+
+      // CAD axes: X=1.500, Y=2.163, Z=1.016
+      // Sort to map: largest(Y=2.163)→width, medium(X=1.500)→length, smallest(Z=1.016)→height
+      // Scale each CAD axis to real size before rotation
+      robotModel.scale.set(
+        REAL_L / rawSize.x,   // CAD-X → length (48")
+        REAL_W / rawSize.y,   // CAD-Y → width (74")
+        REAL_H / rawSize.z,   // CAD-Z → height (39")
+      );
+
+      // Rotate so CAD-Z (height) becomes Three.js-Y (up)
+      // and CAD-Y (width) becomes Three.js-Z
+      robotModel.rotation.x = -Math.PI / 2;
+
+      // Wrap in a group so we can position the rotated+scaled model cleanly
+      const robotWrapper = new THREE.Group();
+      robotWrapper.add(robotModel);
+
+      const finalBox = new THREE.Box3().setFromObject(robotWrapper);
+      const finalCenter = finalBox.getCenter(new THREE.Vector3());
+      const finalSize = finalBox.getSize(new THREE.Vector3());
+
+      // Position on the floor, centered between nav cams
+      robotWrapper.position.sub(finalCenter);
+      robotWrapper.position.y += finalSize.y / 2;
+
+      robotWrapper.visible = false;
+      robotModelLoaded = true;
+      scene.add(robotWrapper);
+      robotModel = robotWrapper;
+      console.log('[robot-model] Loaded, size (m):', finalSize.x.toFixed(2), finalSize.y.toFixed(2), finalSize.z.toFixed(2));
+    }, undefined, (err) => {
+      console.warn('[robot-model] Failed to load:', err);
+    });
+
+    window.toggleRobotModel = function(btn) {
+      if (!robotModel) return;
+      robotModel.visible = !robotModel.visible;
+      if (btn) btn.classList.toggle('on', robotModel.visible);
+      if (btn) btn.textContent = robotModel.visible ? 'Hide Robot' : 'Show Robot';
+      // Also update VR panel
+      renderVRPanel();
+    };
+
+    // Robot name label (top of nav_front)
+    let robotNameSprite = null;
+
+    function updateRobotLabel(name) {
+      if (robotNameSprite) scene.remove(robotNameSprite);
+
+      const cv  = document.createElement('canvas');
+      cv.width  = 1024;
+      cv.height = 128;
+      const ctx = cv.getContext('2d');
+
+      ctx.fillStyle = '#34d399';
+      ctx.fillRect(0, cv.height - 4, cv.width, 4);
+
+      ctx.font      = 'bold 52px Inter, system-ui, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`AIGEN  //  ${name}`, cv.width / 2, cv.height / 2 - 4);
+
+      const tex = new THREE.CanvasTexture(cv);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+      robotNameSprite = new THREE.Sprite(mat);
+      robotNameSprite.scale.set(2.4, 0.3, 1);
+      robotNameSprite.position.set(0, 2.55, -2.0);
+      scene.add(robotNameSprite);
+
+      // Also update the VR control panel
+      renderVRPanel();
+    }
+
+    // --- Camera label helper (hidden by default) ---
+
+    function makeCameraLabel(text) {
       const cv  = document.createElement('canvas');
       cv.width  = 512;
-      cv.height = 80;
+      cv.height = 96;
       const ctx = cv.getContext('2d');
-      ctx.fillStyle = 'rgba(0,0,0,0)';
-      ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.font      = 'bold 42px Courier New, monospace';
-      ctx.fillStyle = '#aaaacc';
+
+      ctx.font      = 'bold 36px Inter, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(200,210,230,0.9)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, cv.width / 2, cv.height / 2);
 
       const tex = new THREE.CanvasTexture(cv);
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 });
       const spr = new THREE.Sprite(mat);
-      spr.scale.set(0.9, 0.14, 1);
+      spr.scale.set(0.7, 0.13, 1);
       return spr;
     }
 
-    // â”€â”€â”€ Panel frame helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Grab handle helper ---
+
+    function makeGrabHandle(w) {
+      const handleW = w * 0.5;
+      const handleH = 0.06;
+      const geo = new THREE.PlaneGeometry(handleW, handleH);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x34d399,
+        transparent: true,
+        opacity: 0.3,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = 'grab-handle';
+      return mesh;
+    }
+
+    // --- Panel frame helper ---
 
     function makeFrame(w, h) {
       const geo  = new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, h));
-      const mat  = new THREE.LineBasicMaterial({ color: 0x445566 });
+      const mat  = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.25 });
       return new THREE.LineSegments(geo, mat);
     }
 
-    // â”€â”€â”€ Build panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Build panels ---
 
     const streamState = {};
+    const panelGroups = [];      // all panel groups for raycasting
+    const grabHandles = [];      // all grab handle meshes for raycasting
 
-    for (const cfg of STREAM_CONFIGS) {
-      // Hidden 2D canvas for WebCodecs output
+    for (const cam of CAMERAS) {
+      const layout = PANEL_LAYOUT[cam.id];
+      const rot = calcPanelRotation(layout.pos, layout.flat, layout.rotZ);
+
+      // Panel group holds: video mesh, frame, grab handle, label
+      const group = new THREE.Group();
+      group.position.set(...layout.pos);
+      group.rotation.set(rot.rotX, rot.rotY, rot.rotZ);
+      group.userData.camId = cam.id;
+      scene.add(group);
+
+      // Hidden 2D canvas for WebCodecs output (resized dynamically on first frame)
       const cv      = document.createElement('canvas');
       cv.width      = 640;
       cv.height     = 480;
       cv.style.display = 'none';
       document.body.appendChild(cv);
 
-      // Placeholder texture (dark grey)
+      // Placeholder
       const placeholderCtx = cv.getContext('2d');
-      placeholderCtx.fillStyle = '#111118';
-      placeholderCtx.fillRect(0, 0, 640, 480);
+      placeholderCtx.fillStyle = '#0a0a14';
+      placeholderCtx.fillRect(0, 0, cv.width, cv.height);
+      placeholderCtx.font = '24px Inter, system-ui, sans-serif';
+      placeholderCtx.fillStyle = 'rgba(255,255,255,0.06)';
+      placeholderCtx.textAlign = 'center';
+      placeholderCtx.fillText(cam.label, cv.width / 2, cv.height / 2);
 
       const texture         = new THREE.CanvasTexture(cv);
       texture.colorSpace    = THREE.SRGBColorSpace;
 
-      // Video panel mesh
-      const geo  = new THREE.PlaneGeometry(cfg.w, cfg.h);
+      // Video panel mesh (local position within group)
+      const geo  = new THREE.PlaneGeometry(layout.w, layout.h);
       const mat  = new THREE.MeshBasicMaterial({ map: texture });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(...cfg.pos);
-      mesh.rotation.x = cfg.rotX;
-      mesh.rotation.y = cfg.rotY;
-      mesh.rotation.z = cfg.rotZ || 0;
-      mesh.visible    = false;
-      scene.add(mesh);
+      mesh.visible = false;
+      group.add(mesh);
 
-      // Frame (always visible as a dim border)
-      const frame = makeFrame(cfg.w, cfg.h);
-      frame.position.set(...cfg.pos);
-      frame.rotation.x = cfg.rotX;
-      frame.rotation.y = cfg.rotY;
-      frame.rotation.z = cfg.rotZ || 0;
-      scene.add(frame);
+      // Frame border
+      const frame = makeFrame(layout.w, layout.h);
+      group.add(frame);
 
-      // Label sprite â€” for horizontal panels (facing up) place label above,
-      // for vertical panels place it below
-      const label = makeTextSprite(cfg.label);
-      const horizontal = Math.abs(cfg.rotX) > 0.1;
-      label.position.set(
-        cfg.pos[0],
-        horizontal ? cfg.pos[1] + 0.15 : cfg.pos[1] - cfg.h / 2 - 0.1,
-        cfg.pos[2]
-      );
-      // scene.add(label);
+      // Grab handle at bottom of panel (or near edge for flat panels)
+      const handle = makeGrabHandle(layout.w);
+      if (layout.flat) {
+        // For ground panels, handle at the near edge (toward viewer)
+        handle.position.set(0, -(layout.h / 2) - 0.05, 0.01);
+      } else {
+        handle.position.set(0, -(layout.h / 2) - 0.05, 0.01);
+      }
+      handle.userData.panelGroup = group;
+      group.add(handle);
+      grabHandles.push(handle);
 
-      const decoder = new StreamDecoder(cfg.id, cfg.port, cv, () => {
-        streamState[cfg.id].textureDirty = true;
+      // Camera label — hidden by default, shown on hover
+      const label = makeCameraLabel(cam.label);
+      if (layout.flat) {
+        label.position.set(0, 0, (layout.h / 2) + 0.1);
+      } else {
+        label.position.set(0, -(layout.h / 2) - 0.15, 0);
+      }
+      label.userData.targetOpacity = 0;
+      group.add(label);
+
+      const decoder = new StreamDecoder(cam.id, cv, () => {
+        streamState[cam.id].textureDirty = true;
       });
 
-      streamState[cfg.id] = {
+      // Dynamic panel resize when stream resolution is detected
+      decoder.onResize = (frameW, frameH) => {
+        const s = streamState[cam.id];
+        if (!s) return;
+        const aspect = frameW / frameH;
+        const panelW = layout.w;
+        const panelH = panelW / aspect;
+
+        // Update video mesh geometry
+        s.mesh.geometry.dispose();
+        s.mesh.geometry = new THREE.PlaneGeometry(panelW, panelH);
+
+        // Update frame border
+        if (s.frame) {
+          s.frame.geometry.dispose();
+          s.frame.geometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(panelW, panelH));
+        }
+
+        // Reposition label and handle
+        if (layout.flat) {
+          s.label.position.set(panelW / 2 + 0.15, 0, 0);
+          s.handle.position.set(0, -(panelH / 2) - 0.05, 0.01);
+        } else {
+          s.label.position.set(0, -(panelH / 2) - 0.15, 0);
+          s.handle.position.set(0, -(panelH / 2) - 0.05, 0.01);
+        }
+
+        // Update handle width
+        const handleW = Math.min(panelW * 0.6, 0.6);
+        s.handle.geometry.dispose();
+        s.handle.geometry = new THREE.PlaneGeometry(handleW, 0.06);
+
+        // Store current panel dimensions for enlarge toggle
+        s.currentW = panelW;
+        s.currentH = panelH;
+        s.aspect = aspect;
+      };
+
+      streamState[cam.id] = {
         decoder,
         mesh,
+        frame,
         texture,
+        group,
+        label,
+        handle,
+        port:         cam.port,
         on:           false,
         textureDirty: false,
-        metricInterval: null,
+        currentW:     layout.w,
+        currentH:     layout.h,
+        aspect:       layout.w / layout.h,
       };
+
+      panelGroups.push(group);
     }
 
-    // â”€â”€â”€ Render loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- 3D Control Panel (right side, opposite crop_3) ---
 
-    renderer.setAnimationLoop(() => {
+    const vrPanelGroup = new THREE.Group();
+    vrPanelGroup.position.set(2.0, 1.5, 0);
+    // Face viewer
+    const vrPanelDir = new THREE.Vector3().subVectors(VIEWER_POS, vrPanelGroup.position).normalize();
+    vrPanelGroup.rotation.y = Math.atan2(vrPanelDir.x, vrPanelDir.z);
+    scene.add(vrPanelGroup);
+
+    // Panel backing
+    const vrPanelW = 1.4, vrPanelH = 1.5;
+    const vrPanelBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(vrPanelW, vrPanelH),
+      new THREE.MeshBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.92 })
+    );
+    vrPanelGroup.add(vrPanelBg);
+
+    // Panel border
+    const vrPanelFrame = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(vrPanelW, vrPanelH)),
+      new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.7 })
+    );
+    vrPanelGroup.add(vrPanelFrame);
+
+    // Grab handle for control panel
+    const vrPanelHandle = makeGrabHandle(vrPanelW);
+    vrPanelHandle.position.set(0, -(vrPanelH / 2) - 0.05, 0.01);
+    vrPanelHandle.userData.panelGroup = vrPanelGroup;
+    vrPanelGroup.add(vrPanelHandle);
+    grabHandles.push(vrPanelHandle);
+
+    // Canvas for dynamic text rendering on the panel
+    const vrPanelCanvas = document.createElement('canvas');
+    vrPanelCanvas.width = 512;
+    vrPanelCanvas.height = 550;
+    const vrPanelTexture = new THREE.CanvasTexture(vrPanelCanvas);
+    vrPanelTexture.colorSpace = THREE.SRGBColorSpace;
+    const vrPanelTextMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(vrPanelW - 0.1, (vrPanelH - 0.1) * (550/512)),
+      new THREE.MeshBasicMaterial({ map: vrPanelTexture, transparent: true })
+    );
+    vrPanelTextMesh.position.z = 0.005;
+    vrPanelGroup.add(vrPanelTextMesh);
+
+    // Interactive 3D buttons on the control panel (positioned in local space)
+    const vrButtons = [];
+
+    function makeVRButton(label, y, w, h, action) {
+      const btnGeo = new THREE.PlaneGeometry(w, h);
+      // Invisible but raycatable — visual feedback via canvas redraw
+      const btnMat = new THREE.MeshBasicMaterial({ visible: false });
+      const btnMesh = new THREE.Mesh(btnGeo, btnMat);
+      btnMesh.position.set(0, y, 0.008);
+      btnMesh.userData.vrButton = true;
+      btnMesh.userData.action = action;
+      btnMesh.userData.label = label;
+      vrPanelGroup.add(btnMesh);
+      vrButtons.push(btnMesh);
+      return btnMesh;
+    }
+
+    // Prev robot button
+    makeVRButton('◄ PREV ROBOT', 0.05, 0.55, 0.14, 'prev-robot');
+    // Next robot button
+    makeVRButton('NEXT ROBOT ►', -0.15, 0.55, 0.14, 'next-robot');
+    // Enlarge crop cams toggle
+    makeVRButton('ENLARGE CROPS', -0.38, 0.55, 0.14, 'toggle-crop-size');
+    makeVRButton('SHOW ROBOT', -0.58, 0.55, 0.14, 'toggle-robot-model');
+
+    let cropCamsEnlarged = false;
+
+    // Store original crop cam layout for toggling
+    const CROP_ORIGINAL = {
+      crop_1: { w: 1.2, h: 0.9, pos: [-0.45, 0.01, 0] },
+      crop_2: { w: 1.2, h: 0.9, pos: [ 0.45, 0.01, 0] },
+    };
+    // Enlarged: h maps to X after rotZ. Side panels at x=±2, so each crop h=2.0 (x=0 to ±2)
+    // Scale factor = 2.0/0.9 = 2.222, so w = 1.2 * 2.222 = 2.667
+    // Position x = ±(h/2) = ±1.0 so edges touch at x=0 and reach x=±2
+    const CROP_ENLARGED = {
+      crop_1: { w: 2.667, h: 2.0, pos: [-1.0, 0.01, 0] },
+      crop_2: { w: 2.667, h: 2.0, pos: [ 1.0, 0.01, 0] },
+    };
+
+    function setCropSize(enlarged) {
+      cropCamsEnlarged = enlarged;
+      const layouts = enlarged ? CROP_ENLARGED : CROP_ORIGINAL;
+
+      for (const id of ['crop_1', 'crop_2']) {
+        const s = streamState[id];
+        if (!s) continue;
+        const l = layouts[id];
+
+        s.group.position.set(...l.pos);
+
+        s.mesh.geometry.dispose();
+        s.mesh.geometry = new THREE.PlaneGeometry(l.w, l.h);
+
+        const oldFrame = s.group.children.find(c => c.isLineSegments);
+        if (oldFrame) {
+          s.group.remove(oldFrame);
+          oldFrame.geometry.dispose();
+        }
+        s.group.add(makeFrame(l.w, l.h));
+
+        const oldHandle = s.handle;
+        const handleW = l.w * 0.5;
+        oldHandle.geometry.dispose();
+        oldHandle.geometry = new THREE.PlaneGeometry(handleW, 0.06);
+      }
+
+      renderVRPanel();
+    }
+
+    function handleVRButtonAction(action) {
+      if (action === 'prev-robot') {
+        const newIdx = (activeRobotIndex - 1 + ROBOTS.length) % ROBOTS.length;
+        document.getElementById('robot-select').value = String(newIdx);
+        window.onRobotSelect(document.getElementById('robot-select'));
+      } else if (action === 'next-robot') {
+        const newIdx = (activeRobotIndex + 1) % ROBOTS.length;
+        document.getElementById('robot-select').value = String(newIdx);
+        window.onRobotSelect(document.getElementById('robot-select'));
+      } else if (action === 'toggle-crop-size') {
+        setCropSize(!cropCamsEnlarged);
+      } else if (action === 'toggle-robot-model') {
+        window.toggleRobotModel(document.getElementById('btn-robot-model'));
+      }
+    }
+
+    // Map local Y to canvas Y: canvasY = ((0.7 - localY) / 1.4) * 550
+    const BTN_Y = { prev: 255, next: 333, crop: 423, robot: 502 };
+
+    let hoveredAction = null;
+
+    function renderVRPanel() {
+      const ctx = vrPanelCanvas.getContext('2d');
+      ctx.clearRect(0, 0, 512, 550);
+
+      // Title
+      ctx.fillStyle = '#34d399';
+      ctx.font = 'bold 36px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('AIGEN', 256, 40);
+
+      // Divider
+      ctx.fillStyle = '#34d399';
+      ctx.fillRect(40, 55, 432, 2);
+
+      // Robot name
+      const robotName = activeRobotIndex >= 0 ? ROBOTS[activeRobotIndex].name : 'No robot selected';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+      ctx.fillText(robotName, 256, 95);
+
+      // Status
+      ctx.fillStyle = activeRobotIndex >= 0 ? '#34d399' : '#666';
+      ctx.font = '20px Inter, system-ui, sans-serif';
+      const activeCount = Object.values(streamState).filter(s => s.on).length;
+      ctx.fillText(activeRobotIndex >= 0 ? `${activeCount} cameras active` : 'Select a robot', 256, 125);
+
+      // Button backgrounds + text — aligned to 3D hit meshes
+      const btnH = 33; // ~0.14m mapped to canvas pixels
+      const buttons = [
+        { y: BTN_Y.prev, label: '◄  PREV ROBOT',  action: 'prev-robot' },
+        { y: BTN_Y.next, label: 'NEXT ROBOT  ►',  action: 'next-robot' },
+        { y: BTN_Y.crop, label: cropCamsEnlarged ? '▼ SHRINK CROPS' : '▲ ENLARGE CROPS', action: 'toggle-crop-size' },
+        { y: BTN_Y.robot, label: (robotModel && robotModel.visible) ? '▼ HIDE ROBOT' : '▲ SHOW ROBOT', action: 'toggle-robot-model' },
+      ];
+
+      for (const b of buttons) {
+        const isHover = hoveredAction === b.action;
+        // Button background
+        ctx.fillStyle = isHover ? 'rgba(58, 122, 90, 0.9)' : 'rgba(35, 78, 58, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(106, b.y - btnH / 2, 300, btnH, 8);
+        ctx.fill();
+
+        // Button text
+        const isActive = (b.action === 'toggle-crop-size' && cropCamsEnlarged) ||
+                         (b.action === 'toggle-robot-model' && robotModel && robotModel.visible);
+        ctx.fillStyle = isHover ? '#6ee7b7' : (isActive ? '#6ee7b7' : '#ffffff');
+        ctx.font = 'bold 22px Inter, system-ui, sans-serif';
+        ctx.fillText(b.label, 256, b.y + 7);
+      }
+
+      vrPanelTexture.needsUpdate = true;
+    }
+
+    renderVRPanel();
+
+    // --- XR Controller setup ---
+
+    const controllerModelFactory = new XRControllerModelFactory();
+    const controllers = [];
+    const grabStates = new Map(); // controller -> { group, offset, distance }
+
+    const tempMatrix = new THREE.Matrix4();
+    const raycaster  = new THREE.Raycaster();
+
+    for (let i = 0; i < 2; i++) {
+      const controller = renderer.xr.getController(i);
+      const grip       = renderer.xr.getControllerGrip(i);
+
+      // Controller model
+      grip.add(controllerModelFactory.createControllerModel(grip));
+      scene.add(grip);
+      scene.add(controller);
+
+      // Ray visualization — thin green line from controller
+      const rayGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -4),
+      ]);
+      const rayMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.4 });
+      const rayLine = new THREE.Line(rayGeo, rayMat);
+      controller.add(rayLine);
+
+      // Grip events — grab/release panels
+      controller.addEventListener('squeezestart', onSqueezeStart);
+      controller.addEventListener('squeezeend', onSqueezeEnd);
+
+      // Select/trigger — click VR panel buttons
+      controller.addEventListener('selectstart', onSelectStart);
+
+      controller.userData.rayLine = rayLine;
+      controller.userData.index = i;
+      controllers.push(controller);
+    }
+
+    function getControllerRay(controller) {
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      return raycaster;
+    }
+
+    function onSqueezeStart(event) {
+      const controller = event.target;
+      const rc = getControllerRay(controller);
+
+      const intersects = rc.intersectObjects(grabHandles, false);
+      if (intersects.length === 0) return;
+
+      const handle = intersects[0].object;
+      const group  = handle.userData.panelGroup;
+
+      // Calculate offset so panel doesn't jump to controller position
+      const controllerPos = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+      const offset = new THREE.Vector3().subVectors(group.position, controllerPos);
+      const distance = offset.length();
+
+      grabStates.set(controller, {
+        group,
+        offset: offset.clone(),
+        distance,
+      });
+
+      // Visual feedback
+      handle.material.opacity = 0.8;
+      handle.material.color.setHex(0x6ee7b7);
+    }
+
+    function onSqueezeEnd(event) {
+      const controller = event.target;
+      const state = grabStates.get(controller);
+      if (!state) return;
+
+      // Reset handle appearance
+      const camId = state.group.userData.camId;
+      if (camId && streamState[camId]) {
+        streamState[camId].handle.material.opacity = 0.3;
+        streamState[camId].handle.material.color.setHex(0x34d399);
+      } else {
+        // VR control panel handle
+        vrPanelHandle.material.opacity = 0.3;
+        vrPanelHandle.material.color.setHex(0x34d399);
+      }
+
+      grabStates.delete(controller);
+    }
+
+    function onSelectStart(event) {
+      const controller = event.target;
+      const rc = getControllerRay(controller);
+      const intersects = rc.intersectObjects(vrButtons, false);
+      if (intersects.length > 0) {
+        const btn = intersects[0].object;
+        if (btn.userData.action) {
+          handleVRButtonAction(btn.userData.action);
+        }
+      }
+    }
+
+    // --- Hover state tracking ---
+
+    let lastHoveredHandle = null;
+    let lastHoveredVRButton = null;
+
+    function updateControllerInteraction() {
+      // Reset previous hover
+      if (lastHoveredHandle) {
+        const camId = lastHoveredHandle.userData.panelGroup?.userData.camId;
+        if (camId && streamState[camId]) {
+          streamState[camId].label.userData.targetOpacity = 0;
+        }
+        if (!isHandleGrabbed(lastHoveredHandle)) {
+          lastHoveredHandle.material.opacity = 0.3;
+          lastHoveredHandle.material.color.setHex(0x34d399);
+        }
+        lastHoveredHandle = null;
+      }
+      if (lastHoveredVRButton) {
+        lastHoveredVRButton = null;
+        hoveredAction = null;
+        renderVRPanel();
+      }
+
+      for (const controller of controllers) {
+        const state = grabStates.get(controller);
+
+        if (state) {
+          // --- Move grabbed panel ---
+          const controllerPos = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+          const forward = new THREE.Vector3(0, 0, -1).applyMatrix4(
+            tempMatrix.identity().extractRotation(controller.matrixWorld)
+          );
+
+          // Read thumbstick for push/pull
+          const session = renderer.xr.getSession();
+          if (session) {
+            for (const source of session.inputSources) {
+              if (source.handedness === (controller.userData.index === 0 ? 'left' : 'right') && source.gamepad) {
+                const thumbY = source.gamepad.axes[3] || 0;
+                if (Math.abs(thumbY) > 0.15) {
+                  state.distance = Math.max(0.3, Math.min(5.0, state.distance - thumbY * 0.03));
+                }
+              }
+            }
+          }
+
+          // Position panel along controller ray at grab distance
+          state.group.position.copy(controllerPos).add(forward.multiplyScalar(state.distance));
+
+          // Make panel face viewer (XR camera)
+          const xrCamera = renderer.xr.getCamera();
+          const camPos = new THREE.Vector3().setFromMatrixPosition(xrCamera.matrixWorld);
+          const dir = new THREE.Vector3().subVectors(camPos, state.group.position);
+          state.group.rotation.y = Math.atan2(dir.x, dir.z);
+          // Keep x/z rotation minimal for side/floor panels
+          const horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
+          state.group.rotation.x = Math.atan2(-dir.y, horizDist);
+          state.group.rotation.z = 0;
+
+        } else {
+          // --- Hover detection ---
+          const rc = getControllerRay(controller);
+          const intersects = rc.intersectObjects(grabHandles, false);
+
+          if (intersects.length > 0) {
+            const handle = intersects[0].object;
+            handle.material.opacity = 0.6;
+            handle.material.color.setHex(0x6ee7b7);
+            lastHoveredHandle = handle;
+
+            // Show camera label
+            const camId = handle.userData.panelGroup?.userData.camId;
+            if (camId && streamState[camId]) {
+              streamState[camId].label.userData.targetOpacity = 1;
+            }
+
+            // Shorten ray to hit point
+            controller.userData.rayLine.geometry.setFromPoints([
+              new THREE.Vector3(0, 0, 0),
+              new THREE.Vector3(0, 0, -intersects[0].distance),
+            ]);
+          } else {
+            // Check VR button hover
+            const btnIntersects = rc.intersectObjects(vrButtons, false);
+            if (btnIntersects.length > 0) {
+              const btn = btnIntersects[0].object;
+              lastHoveredVRButton = btn;
+              hoveredAction = btn.userData.action;
+              renderVRPanel();
+
+              controller.userData.rayLine.geometry.setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -btnIntersects[0].distance),
+              ]);
+            } else {
+              // Default ray length
+              controller.userData.rayLine.geometry.setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -4),
+              ]);
+            }
+          }
+        }
+      }
+    }
+
+    function isHandleGrabbed(handle) {
+      for (const state of grabStates.values()) {
+        const camId = state.group.userData.camId;
+        if (camId && streamState[camId] && streamState[camId].handle === handle) return true;
+        // Also check VR panel handle
+        if (handle === vrPanelHandle && state.group === vrPanelGroup) return true;
+      }
+      return false;
+    }
+
+    // --- Animate label opacity ---
+
+    function updateLabelOpacity(dt) {
+      for (const s of Object.values(streamState)) {
+        const target = s.label.userData.targetOpacity;
+        const current = s.label.material.opacity;
+        const speed = 5.0; // fade speed
+        if (Math.abs(target - current) > 0.01) {
+          s.label.material.opacity += (target - current) * Math.min(1, dt * speed);
+        } else {
+          s.label.material.opacity = target;
+        }
+      }
+    }
+
+    // --- Render loop ---
+
+    let lastTime = performance.now();
+
+    renderer.setAnimationLoop((time) => {
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+
       controls.update();
+
+      // XR controller interaction
+      if (renderer.xr.isPresenting) {
+        updateControllerInteraction();
+      }
+
+      // Animate labels
+      updateLabelOpacity(dt);
+
+      // Update dirty textures
       for (const s of Object.values(streamState)) {
         if (s.textureDirty) {
           s.texture.needsUpdate = true;
           s.textureDirty = false;
         }
       }
+
       renderer.render(scene, camera);
     });
 
-    // â”€â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- VR session events: hide/show HTML overlay ---
+
+    renderer.xr.addEventListener('sessionstart', () => {
+      document.getElementById('control-bar').style.display = 'none';
+    });
+
+    renderer.xr.addEventListener('sessionend', () => {
+      document.getElementById('control-bar').style.display = 'flex';
+    });
+
+    // --- Metrics ---
 
     let metricsOn = false;
     const metricsPanel = document.getElementById('metrics-panel');
@@ -508,19 +1376,22 @@
     function updateMetrics() {
       if (!metricsOn) return;
       let html = '';
+      if (activeRobotIndex >= 0) {
+        html += `<div style="color:#34d399;margin-bottom:4px;font-weight:600">${ROBOTS[activeRobotIndex].name}</div>`;
+      }
       for (const [id, s] of Object.entries(streamState)) {
         if (!s.on) continue;
         const dec  = s.decoder;
         const fps  = dec.frameCount;
-        const kbps = (dec.byteCount / 1000).toFixed(1);
+        const kbs  = (dec.byteCount / 1000).toFixed(1);
         dec.frameCount = 0;
         dec.byteCount  = 0;
-        html += `<div>${id}: ${fps} fps | ${kbps} kB/s</div>`;
+        html += `<div>${id}: ${fps} fps | ${kbs} kB/s</div>`;
       }
       metricsPanel.innerHTML = html || '<div>No active streams</div>';
     }
 
-    const metricsInterval = setInterval(updateMetrics, 1000);
+    setInterval(updateMetrics, 1000);
 
     window.toggleMetrics = function(btn) {
       metricsOn = !metricsOn;
@@ -528,7 +1399,48 @@
       btn.classList.toggle('on', metricsOn);
     };
 
-    // â”€â”€â”€ Stream toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    window.toggleCropSize = function(btn) {
+      setCropSize(!cropCamsEnlarged);
+      btn.classList.toggle('on', cropCamsEnlarged);
+      btn.textContent = cropCamsEnlarged ? 'Shrink Crops' : 'Enlarge Crops';
+    };
+
+    // --- Robot selection → auto-start all feeds ---
+
+    window.onRobotSelect = function(select) {
+      const index = parseInt(select.value);
+      if (isNaN(index) || index < 0 || index >= ROBOTS.length) return;
+
+      // Stop all current streams
+      stopAll();
+
+      activeRobotIndex = index;
+      updateRobotLabel(ROBOTS[index].name);
+
+      // Start all feeds on this robot
+      startAllFeeds();
+
+      document.getElementById('status-text').textContent = `Streaming from ${ROBOTS[index].name}`;
+      document.getElementById('status-text').className = 'status-text connected';
+    };
+
+    function startAllFeeds() {
+      if (activeRobotIndex < 0) return;
+      const host = ROBOTS[activeRobotIndex].host;
+
+      for (const [id, s] of Object.entries(streamState)) {
+        if (!s.on) {
+          s.decoder.start(host, s.port);
+          s.mesh.visible = true;
+          s.on = true;
+          const camBtn = document.getElementById(`btn-${id}`);
+          if (camBtn) camBtn.classList.add('on');
+        }
+      }
+      renderVRPanel();
+    }
+
+    // --- Stream toggle ---
 
     window.toggleStream = function(id, btn) {
       const s = streamState[id];
@@ -540,7 +1452,16 @@
         s.on = false;
         btn.classList.remove('on');
       } else {
-        s.decoder.start();
+        if (activeRobotIndex < 0) {
+          // Auto-select first robot
+          activeRobotIndex = 0;
+          document.getElementById('robot-select').value = '0';
+          updateRobotLabel(ROBOTS[0].name);
+          startAllFeeds();
+          return;
+        }
+        const host = ROBOTS[activeRobotIndex].host;
+        s.decoder.start(host, s.port);
         s.mesh.visible = true;
         s.on = true;
         btn.classList.add('on');
@@ -556,39 +1477,71 @@
           const btn = document.getElementById(`btn-${id}`);
           if (btn) btn.classList.remove('on');
         }
+        // Clear canvas so old frames don't persist
+        const cv = s.decoder.canvas;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        s.texture.needsUpdate = true;
       }
-      metricsOn = false;
-      metricsPanel.style.display = 'none';
-      const mBtn = document.getElementById('btn-metrics');
-      if (mBtn) mBtn.classList.remove('on');
     }
 
-    // â”€â”€â”€ Visibility change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // --- Visibility change ---
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) stopAll();
+      if (document.hidden) {
+        stopAll();
+        metricsOn = false;
+        metricsPanel.style.display = 'none';
+        const mBtn = document.getElementById('btn-metrics');
+        if (mBtn) mBtn.classList.remove('on');
+      }
     });
 
-    // â”€â”€â”€ URL param single-stream mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    window.addEventListener('beforeunload', () => {
+      for (const s of Object.values(streamState)) {
+        s.decoder.stop();
+      }
+    });
+
+    // --- URL param mode ---
 
     document.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
 
+      // ?robot=0 or ?robot=mosscap-120
+      const robotParam = params.get('robot');
+      if (robotParam !== null) {
+        const idx = parseInt(robotParam);
+        if (!isNaN(idx) && idx >= 0 && idx < ROBOTS.length) {
+          activeRobotIndex = idx;
+        } else {
+          const match = ROBOTS.findIndex(r => r.name.toLowerCase() === robotParam.toLowerCase());
+          if (match >= 0) activeRobotIndex = match;
+        }
+        if (activeRobotIndex >= 0) {
+          document.getElementById('robot-select').value = String(activeRobotIndex);
+          updateRobotLabel(ROBOTS[activeRobotIndex].name);
+        }
+      }
+
       if (params.has('stream')) {
-        // Single stream mode â€” hide button bar
-        document.getElementById('button-bar').style.display = 'none';
+        // Single stream mode
+        document.getElementById('control-bar').style.display = 'none';
+
+        if (activeRobotIndex < 0) activeRobotIndex = 0;
+        const host = ROBOTS[activeRobotIndex].host;
 
         const id  = params.get('stream');
         const s   = streamState[id];
         if (s) {
-          s.decoder.start();
+          s.decoder.start(host, s.port);
           s.mesh.visible = true;
           s.on = true;
-          // Point camera toward that panel
-          const cfg = STREAM_CONFIGS.find(c => c.id === id);
-          if (cfg) {
-            camera.position.set(cfg.pos[0], cfg.pos[1], cfg.pos[2] + 2.8);
-            controls.target.set(...cfg.pos);
+          const layout = PANEL_LAYOUT[id];
+          if (layout) {
+            camera.position.set(layout.pos[0], layout.pos[1], layout.pos[2] + 2.8);
+            controls.target.set(...layout.pos);
           }
         }
 
@@ -596,8 +1549,31 @@
           metricsOn = true;
           metricsPanel.style.display = 'block';
         }
+      } else if (params.has('demo')) {
+        // Auto-start demo mode
+        document.getElementById('control-bar').style.display = 'flex';
+        if (activeRobotIndex < 0) activeRobotIndex = 0;
+        document.getElementById('robot-select').value = String(activeRobotIndex);
+        updateRobotLabel(ROBOTS[activeRobotIndex].name);
+        setTimeout(() => {
+          startAllFeeds();
+          document.getElementById('status-text').textContent = `Streaming from ${ROBOTS[activeRobotIndex].name}`;
+          document.getElementById('status-text').className = 'status-text connected';
+        }, 500);
       } else {
-        document.getElementById('button-bar').style.display = 'flex';
+        document.getElementById('control-bar').style.display = 'flex';
+
+        // Default to Loki-116 and start all feeds
+        if (activeRobotIndex < 0) {
+          activeRobotIndex = 3; // Loki-116
+          document.getElementById('robot-select').value = '3';
+          updateRobotLabel(ROBOTS[3].name);
+          setTimeout(() => {
+            startAllFeeds();
+            document.getElementById('status-text').textContent = `Streaming from ${ROBOTS[3].name}`;
+            document.getElementById('status-text').className = 'status-text connected';
+          }, 500);
+        }
       }
     });
   </script>
