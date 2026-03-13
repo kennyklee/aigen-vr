@@ -206,6 +206,42 @@
       box-shadow: 0 4px 24px rgba(52,211,153,0.4);
       cursor: pointer;
     }
+
+    #robot-load-progress {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 12px;
+      padding: 12px 24px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: opacity 0.5s;
+    }
+
+    #robot-load-progress .bar {
+      width: 160px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #robot-load-progress .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #34d399, #059669);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.2s;
+    }
   </style>
 </head>
 
@@ -252,6 +288,10 @@
   </div>
 
   <div id="vr-button-container"></div>
+  <div id="robot-load-progress">
+    <span id="robot-load-text">Loading 3D model...</span>
+    <div class="bar"><div class="bar-fill" id="robot-load-bar"></div></div>
+  </div>
 
   <script type="module">
     import * as THREE from 'three';
@@ -259,6 +299,8 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
     // --- Feature detection ---
 
@@ -640,6 +682,14 @@
     let robotModel = null;
     let robotModelLoaded = false;
     const gltfLoader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/');
+    gltfLoader.setDRACOLoader(dracoLoader);
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+
+    const progressEl = document.getElementById('robot-load-progress');
+    const progressBar = document.getElementById('robot-load-bar');
+    const progressText = document.getElementById('robot-load-text');
 
     gltfLoader.load('robot-model.glb', (gltf) => {
       robotModel = gltf.scene;
@@ -647,27 +697,37 @@
       // Real dimensions: 74"W × 48"L × 39"H
       const REAL_W = 74 * 0.0254;  // 1.880m
       const REAL_L = 48 * 0.0254;  // 1.219m
-      const REAL_H = 39 * 0.0254;  // 0.991m
+      const REAL_H = 45 * 0.0254;  // 1.143m
 
-      // CAD raw bounding box (before any rotation)
+      // Measure raw bounding box
       const rawBox = new THREE.Box3().setFromObject(robotModel);
       const rawSize = rawBox.getSize(new THREE.Vector3());
-      const rawCenter = rawBox.getCenter(new THREE.Vector3());
+      console.log('[robot-model] Raw size:', rawSize.x.toFixed(3), rawSize.y.toFixed(3), rawSize.z.toFixed(3));
 
-      // CAD axes: X=1.500, Y=2.163, Z=1.016
-      // Sort to map: largest(Y=2.163)→width, medium(X=1.500)→length, smallest(Z=1.016)→height
-      // Scale each CAD axis to real size before rotation
-      robotModel.scale.set(
-        REAL_L / rawSize.x,   // CAD-X → length (48")
-        REAL_W / rawSize.y,   // CAD-Y → width (74")
-        REAL_H / rawSize.z,   // CAD-Z → height (39")
-      );
+      // Sort dimensions to map largest→width, medium→length, smallest→height
+      const dims = [
+        { axis: 'x', size: rawSize.x },
+        { axis: 'y', size: rawSize.y },
+        { axis: 'z', size: rawSize.z },
+      ].sort((a, b) => b.size - a.size);
 
-      // Rotate so CAD-Z (height) becomes Three.js-Y (up)
-      // and CAD-Y (width) becomes Three.js-Z
-      robotModel.rotation.x = -Math.PI / 2;
+      // Map: largest CAD dim → REAL_W, medium → REAL_L, smallest → REAL_H
+      const scaleMap = {};
+      scaleMap[dims[0].axis] = REAL_W / dims[0].size;
+      scaleMap[dims[1].axis] = REAL_L / dims[1].size;
+      scaleMap[dims[2].axis] = REAL_H / dims[2].size;
 
-      // Wrap in a group so we can position the rotated+scaled model cleanly
+      robotModel.scale.set(scaleMap.x, scaleMap.y, scaleMap.z);
+
+      // Rotate so the height axis (smallest) points up (Three.js Y)
+      // If smallest dim is Z, rotate X by -90°; if X, rotate Z by 90°; if Y, no rotation
+      if (dims[2].axis === 'z') {
+        robotModel.rotation.x = -Math.PI / 2;
+      } else if (dims[2].axis === 'x') {
+        robotModel.rotation.z = Math.PI / 2;
+      }
+
+      // Wrap in group for clean positioning
       const robotWrapper = new THREE.Group();
       robotWrapper.add(robotModel);
 
@@ -678,14 +738,32 @@
       // Position on the floor, centered between nav cams
       robotWrapper.position.sub(finalCenter);
       robotWrapper.position.y += finalSize.y / 2;
+      robotWrapper.rotation.y = Math.PI / 2;  // 90° counterclockwise
 
       robotWrapper.visible = false;
       robotModelLoaded = true;
       scene.add(robotWrapper);
       robotModel = robotWrapper;
-      console.log('[robot-model] Loaded, size (m):', finalSize.x.toFixed(2), finalSize.y.toFixed(2), finalSize.z.toFixed(2));
-    }, undefined, (err) => {
+
+      // Hide progress bar
+      progressEl.style.opacity = '0';
+      setTimeout(() => progressEl.style.display = 'none', 500);
+
+      console.log('[robot-model] Loaded, final size (m):', finalSize.x.toFixed(2), finalSize.y.toFixed(2), finalSize.z.toFixed(2));
+    }, (progress) => {
+      // Progress callback
+      if (progress.lengthComputable) {
+        const pct = Math.round((progress.loaded / progress.total) * 100);
+        progressBar.style.width = pct + '%';
+        progressText.textContent = `Loading 3D model... ${pct}%`;
+      } else {
+        const mb = (progress.loaded / 1024 / 1024).toFixed(1);
+        progressText.textContent = `Loading 3D model... ${mb} MB`;
+      }
+    }, (err) => {
       console.warn('[robot-model] Failed to load:', err);
+      progressText.textContent = 'Model failed to load';
+      setTimeout(() => { progressEl.style.opacity = '0'; }, 3000);
     });
 
     window.toggleRobotModel = function(btn) {

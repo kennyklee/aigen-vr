@@ -1,1 +1,5 @@
 node_modules/
+*.gltf
+*.step
+robot-model-full.glb
+robot-model-uncompressed.glb
